@@ -58,13 +58,20 @@ def compile_yapy(source: str, filename: str, mode: str="exec", verbose=False, re
     return code_object
 
 
+def create_initial_environment() -> dict:
+    """Create and return an initial yapy environment"""
+    env = {}
+    env["__builtins__"] = globals()["__builtins__"]
+    return env
+
+
 def run_REPL(verbose=False):
     """Execute yapy Read-Eval-Print-Loop"""
     def _output_error(msg):
         import sys
         print(msg, file=sys.stderr)
 
-    global_env, local_env = {}, {}
+    env = create_initial_environment()
     result_id = 1
     history = prompt_toolkit.history.History()
 
@@ -74,8 +81,8 @@ def run_REPL(verbose=False):
                 source = prompt_toolkit.shortcuts.get_input("In [{0}]: ".format(result_id), history=history)
                 result_name = "_{0}".format(result_id)
                 code_object = compile_yapy(source, "<REPL>", "single", verbose=verbose, result_name=result_name)
-                exec(code_object, global_env, local_env)
-                result = local_env.get(result_name, None)
+                exec(code_object, env, env)
+                result = env.get(result_name, None)
                 if result is not None:
                     print("Out[{0}]:".format(result_id), result)
                 print()
@@ -102,7 +109,8 @@ def compile_and_execute(source: str, filename: str):
 
     try:
         code_object = compile_yapy(source, filename, "exec", verbose=False)
-        exec(code_object, {}, {})
+        env = create_initial_environment()
+        exec(code_object, env, env)
     except pyparsing.ParseException as e:
         _output_error("Syntax error: {0}".format(e))
     except yapy.macro.MacroExpantionError as e:
