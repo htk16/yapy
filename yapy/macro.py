@@ -170,9 +170,9 @@ class AnonymousFunctionHoister(ast.NodeTransducer):
     def _create_hoisted_function(self, params: list, body: ast.Block, return_type: ast.Type) -> str:
         """Create a hoisted function and return its name
 
-        :param params:
-        :param body:
-        :param return_type:
+        :param params: function parameters
+        :param body: function body
+        :param return_type: return type
         :return: name of a hoisted function
         """
         import uuid
@@ -202,9 +202,14 @@ class AnonymousFunctionHoister(ast.NodeTransducer):
     def transduce_If(self, node: ast.If) -> ast.Node:
         def _transcduce_if_block(if_block: ast.Node) -> ast.Expression:
             if isinstance(if_block, ast.Block):
-                func_name = self._create_hoisted_function([], if_block, None)
-                return ast.FunctionCall(func=ast.Variable(func_name),
-                                        params=[])
+                if len(if_block.statements) == 1:
+                    # single statement block
+                    return if_block.statements[0]
+                else:
+                    # multi statement block
+                    func_name = self._create_hoisted_function([], if_block, ast.Unsolved)
+                    return ast.FunctionCall(func=ast.Variable(func_name),
+                                            params=[])
             else:
                 assert isinstance(if_block, ast.Expression)
                 return if_block

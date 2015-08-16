@@ -76,8 +76,9 @@ KeyValue = (Expression("key") + Ign(":") + OpNewLine + Expression("value")).setP
     lambda t: ast.KeyValue(t.key, t.value))
 Dict = (Ign('{') + OpNewLines + delimitedList(KeyValue)("elems") + OpNewLines + Ign('}')).setParseAction(
     lambda t: ast.Dict(t.elems.asList()))
-TypedVariable = (Variable("var") + Ign(":") + OpNewLine + Type("var_type")).setParseAction(
-    lambda t: ast.TypedVariable(t.var, t.var_type))
+TypedVariable = (Variable("var") +
+                 Optional(Ign(":") + OpNewLine + Type, default=ast.Unsolved())("var_type")).setParseAction(
+    lambda t: ast.TypedVariable(t.var, t.var_type[0]))
 Term0 = (List
          | Set
          | Dict
@@ -113,8 +114,9 @@ If = (Ign("if") + OpNewLine + Expression("cond") + OpNewLine +
     lambda t: ast.If(t.cond, t.then_expr, t.else_expr))
 Parameters = Optional(delimitedList(TypedVariable, Comma).setParseAction(lambda t: t.asList()), [])
 Function = (Ign("fn") + Ign('(') + Parameters("params") + Ign(')') +
-            Ign(":") + Type("return_type") + Ign('=') + Block("body")).setParseAction(
-    lambda t: ast.Function(t.params.asList(), t.return_type, t.body))
+            Optional(Ign(":") + Type, default=ast.Unsolved())("return_type") +
+            Ign('=') + Block("body")).setParseAction(
+    lambda t: ast.Function(t.params.asList(), t.return_type[0], t.body))
 Term3 = (If
          | Function
          | Term2)

@@ -83,10 +83,18 @@ def test_expression_parsing():
            If(bops(var("x"), bop("="), Integer(1)),
               Block([String("a")]),
               Block([String("b")]))
+    assert parse_expr('fn() = print("Hello, world!")') == \
+           Function([],
+                    Unsolved(),
+                    Block([FunctionCall(var("print"), [String("Hello, world!")])]))
     assert parse_expr('fn(): Unit = print("Hello, world!")') == \
            Function([],
                     ptype("Unit"),
                     Block([FunctionCall(var("print"), [String("Hello, world!")])]))
+    assert parse_expr("fn(d1, d2) = 16") == \
+           Function([tvar("d1", Unsolved()), tvar("d2", Unsolved())],
+                    Unsolved(),
+                    Block([Integer(16)]))
     assert parse_expr("fn(d1: Int, d2: Int): Int = 16") == \
            Function([tvar("d1", ptype("Int")), tvar("d2", ptype("Int"))],
                     ptype("Int"),

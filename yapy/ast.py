@@ -616,17 +616,12 @@ class NoneValue(Expression):
 class Type(Node):
     """Abstract class for type notations
 
-    Type ::= Any
-           | PrimitiveType
+    Type ::= PrimitiveType
            | GenericType
            | TypeTuple
+           | Any
+           | Unsolved
     """
-
-
-class Any(Type):
-    """Any type"""
-    def __init__(self):
-        pass
 
 
 class PrimitiveType(Type):
@@ -683,3 +678,13 @@ class TypeTuple(Type):
     @property
     def types(self):
         return self._types
+
+
+class Any(Type):
+    """Any type"""
+    pass
+
+
+class Unsolved(Type):
+    """Unsolved type"""
+    pass
