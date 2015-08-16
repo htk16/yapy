@@ -146,13 +146,18 @@ class AnonymousFunctionHoister(ast.NodeTransducer):
         self._funcs = []
 
     @classmethod
-    def has_Function_node(cls, node: ast.Node) -> bool:
-        return any(isinstance(n, ast.Function) for n in ast.walk_in_scope(node))
+    def is_target_node(cls, node: ast.Node) -> bool:
+        return isinstance(node, ast.Function) or \
+               isinstance(node, ast.If)
+
+    @classmethod
+    def has_target_node(cls, node: ast.Node) -> bool:
+        return any(cls.is_target_node(n) for n in ast.walk_in_scope(node))
 
     @classmethod
     def hoist_anonymous_functions(cls, stmts: list):
         for stmt in stmts:
-            if cls.has_Function_node(stmt):
+            if cls.has_target_node(stmt):
                 # Hoist anonymous function
                 hoister = AnonymousFunctionHoister()
                 transduced_stmt = hoister.transduce(stmt)
@@ -162,29 +167,54 @@ class AnonymousFunctionHoister(ast.NodeTransducer):
             else:
                 yield stmt
 
-    @property
-    def funcs(self) -> list:
-        return self._funcs
+    def _create_hoisted_function(self, params: list, body: ast.Block, return_type: ast.Type) -> str:
+        """Create a hoisted function and return its name
 
-    def _add_hoisted_function(self, node: ast.FunctionDefinition):
-        self._funcs.append(node)
-
-    def transduce_Function(self, node: ast.Function) -> ast.Node:
+        :param params:
+        :param body:
+        :param return_type:
+        :return: name of a hoisted function
+        """
         import uuid
-        # TODO: Return Lambda node if node's body has only one expression
         # TODO: Check conflict other names
         func_name = "_func_{0}".format(str(uuid.uuid4()).replace("-", "_"))
         hoisted_func = ast.FunctionDefinition(
             name=func_name,
-            params=node.params,
-            return_type=node.return_type,
-            body=node.body)
-        self._add_hoisted_function(hoisted_func)
+            params=params,
+            return_type=return_type,
+            body=body)
+        self._funcs.append(hoisted_func)  # add hoisted function
+        return func_name
+
+    @property
+    def funcs(self) -> list:
+        return self._funcs
+
+    def transduce_Function(self, node: ast.Function) -> ast.Node:
+        # TODO: Return Lambda node if node's body has only one expression
+        func_name = self._create_hoisted_function(node.params, node.body, node.return_type)
         return ast.Variable(func_name)
 
     def need_transduce_Function(self, _: ast.Function) -> bool:
         # Function node be must transduced to Lambda or FunctionDefinition
         return True
+
+    def transduce_If(self, node: ast.If) -> ast.Node:
+        def _transcduce_if_block(if_block: ast.Node) -> ast.Expression:
+            if isinstance(if_block, ast.Block):
+                func_name = self._create_hoisted_function([], if_block, None)
+                return ast.FunctionCall(func=ast.Variable(func_name),
+                                        params=[])
+            else:
+                assert isinstance(if_block, ast.Expression)
+                return if_block
+
+        return ast.If(cond=node.cond,
+                      then_expr=_transcduce_if_block(node.then_expr),
+                      else_expr=_transcduce_if_block(node.else_expr))
+
+    def need_transduce_If(self, node: ast.If) -> bool:
+        return isinstance(node.then_expr, ast.Block) and isinstance(node.else_expr, ast.Block)
 
     def need_transduce_Block(self, _: ast.Block) -> bool:
         return False

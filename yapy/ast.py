@@ -290,9 +290,10 @@ class Block(Node):
 class If(Expression):
     """if expression
 
-    If ::= 'if' Expression 'then' Expression [ 'else' Expression ]
+    If ::= 'if' Expression 'then' IfBlock [ 'else' IfBlock ]
+    IfBlock ::= Expression | Block
     """
-    def __init__(self, cond: Expression, then_expr: Expression, else_expr: Expression):
+    def __init__(self, cond: Block, then_expr: Block, else_expr: Expression):
         self._cond = cond
         self._then_expr = then_expr
         self._else_expr = else_expr
@@ -302,11 +303,11 @@ class If(Expression):
         return self._cond
 
     @property
-    def then_expr(self) -> Expression:
+    def then_expr(self) -> Node:
         return self._then_expr
 
     @property
-    def else_expr(self) -> Expression:
+    def else_expr(self) -> Node:
         return self._else_expr
 
 

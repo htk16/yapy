@@ -96,10 +96,6 @@ FunctionCall = (Term1("func") + Ign('(') + Arguments("args") + Ign(')')).setPars
 Term2 = (Term1 ^ FunctionCall)
 
 # Term3: Basic expressions
-If = (Ign("if") + OpNewLine + Expression("cond") + OpNewLine +
-      Ign("then") + Expression("then_expr") + OpNewLine +
-      Ign("else") + Expression("else_expr")).setParseAction(
-    lambda t: ast.If(t.cond, t.then_expr, t.else_expr))
 Statement = Forward()
 def create_block_ast(s: str, loc: int, toks: pyparsing.ParseResults):
     if len(toks.stmts) > 0:
@@ -111,6 +107,10 @@ Block = ((Ign('{') + OpNewLines +
           delimitedList(Statement, BlockDelimiter)("stmts") +
           OpNewLines + Ign('}')) ^
          Expression("expr")).setParseAction(create_block_ast)
+If = (Ign("if") + OpNewLine + Expression("cond") + OpNewLine +
+      Ign("then") + Block("then_expr") + OpNewLine +
+      Ign("else") + Block("else_expr")).setParseAction(
+    lambda t: ast.If(t.cond, t.then_expr, t.else_expr))
 Parameters = Optional(delimitedList(TypedVariable, Comma).setParseAction(lambda t: t.asList()), [])
 Function = (Ign("fn") + Ign('(') + Parameters("params") + Ign(')') +
             Ign(":") + Type("return_type") + Ign('=') + Block("body")).setParseAction(

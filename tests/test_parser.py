@@ -81,8 +81,8 @@ def test_expression_parsing():
     # Term3: Basic expressions
     assert parse_expr('if x = 1 then "a" else "b"') == \
            If(bops(var("x"), bop("="), Integer(1)),
-              String("a"),
-              String("b"))
+              Block([String("a")]),
+              Block([String("b")]))
     assert parse_expr('fn(): Unit = print("Hello, world!")') == \
            Function([],
                     ptype("Unit"),
