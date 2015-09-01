@@ -94,7 +94,26 @@ Term1 = (Term0 ^ Attribute)
 Arguments = Optional(delimitedList(Expression, Comma).setParseAction(lambda t: t.asList()), [])
 FunctionCall = (Term1("func") + Ign('(') + Arguments("args") + Ign(')')).setParseAction(
     lambda t: ast.FunctionCall(t.func, t.args.asList()))
-Term2 = (Term1 ^ FunctionCall)
+
+def create_Index(s: str, loc: int, toks: pyparsing.ParseResults):
+    print("Index:", toks)
+    print("Index: value", toks.value)
+    return ast.Index(toks.value)
+# Index = Expression("value").setParseAction(create_Index)
+# Index = Expression("val").setParseAction(lambda t: ast.Index(t.val))
+Index = Expression("value").setParseAction(lambda _s, _loc, toks: ast.Index(toks.value))
+Slice = (Expression("lower") + Ign(":") + OpNewLine + Expression("upper")).setParseAction(
+    lambda t: ast.Slice(t.lower, t.upper, ast.Integer(1)))
+# Range = (Index ^ Slice)
+Range = Index
+def create_Subscript(s: str, loc: int, toks: pyparsing.ParseResults):
+    print("Subscript:", toks)
+    print("Subscript attr:", toks.asDict())
+    return ast.Subscript(toks.value, toks.range)
+Subscript = (Term1("value") + Ign('[') + Range("range") + Ign(']')).setParseAction(create_Subscript)
+# Subscript = (Term1("value") + Ign('[') + Range("range") + Ign(']')).setParseAction(
+#     lambda _s, _loc, toks: ast.Subscript(toks.value, toks.range))
+Term2 = (Term1 ^ FunctionCall ^ Subscript)
 
 # Term3: Basic expressions
 Statement = Forward()

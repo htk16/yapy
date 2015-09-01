@@ -96,6 +96,8 @@ def run_REPL(verbose=False):
         _output_error("Translation error: {0}".format(e))
     except Exception as e:
         _output_error("Internal error: {0}".format(e))
+        import traceback
+        traceback.print_exc()
 
 
 def compile_and_execute(source: str, filename: str):
@@ -119,6 +121,8 @@ def compile_and_execute(source: str, filename: str):
         _output_error("Translation error: {0}".format(e))
     except Exception as e:
         _output_error("Internal error: {0}".format(e))
+        import traceback
+        traceback.print_exc()
 
 
 def create_argparser() -> argparse.ArgumentParser:

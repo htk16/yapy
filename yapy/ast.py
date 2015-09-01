@@ -261,6 +261,7 @@ class Expression(Statement):
      Term2 ::= BinaryOperations
              | Term1
      Term1 ::= FunctionCall
+             | Subscript
              | Term0
      Term0 ::= If
               | For
@@ -350,6 +351,55 @@ class FunctionCall(Expression):
     @property
     def params(self) -> Expression:
         return self._params
+
+
+class Subscript(Expression):
+    """Subscript
+
+    Subscript ::= Expression '[' (Index | Slice) ']'
+    Index ::= Expression
+    Slice ::= Expression ':' Expression"""
+    def __init__(self, value: Expression, range: Expression):
+        self._value = value
+        self._range = range
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def range(self):
+        return self._range
+
+
+class Index(Node):
+    """Subscript index"""
+    def __init__(self, value: Expression):
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+
+class Slice(Node):
+    """Subscript slice"""
+    def __init__(self, lower: Expression, upper: Expression, step: Expression):
+        self._lower = lower
+        self._upper = upper
+        self._step = step
+
+    @property
+    def lower(self):
+        return self._lower
+
+    @property
+    def upper(self):
+        return self._upper
+
+    @property
+    def step(self):
+        return self._step
 
 
 class UnaryOperator(Node):

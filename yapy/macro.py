@@ -161,7 +161,6 @@ class AnonymousFunctionHoister(ast.NodeTransducer):
                 # Hoist anonymous function
                 hoister = AnonymousFunctionHoister()
                 transduced_stmt = hoister.transduce(stmt)
-                assert len(hoister.funcs) > 0
                 yield from hoister.funcs
                 yield transduced_stmt
             else:
@@ -253,7 +252,7 @@ class ResultStoringTransducer(ast.NodeTransducer):
             #     else_statements=[]
             # )
             transduced_statements[-1] = ast.VariableBinding(
-                var=ast.TypedVariable(ast.Variable(self._result_name), ast.Any),
+                var=ast.TypedVariable(ast.Variable(self._result_name), ast.Any()),
                 expr=node.statements[-1]
             )
             return node.__class__(statements=transduced_statements)

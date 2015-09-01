@@ -103,6 +103,21 @@ class PythonTranslator:
             starargs=None,
             kwargs=None)
 
+    def translate_Subscript(self, node: ast.Subscript) -> pyast.Subscript:
+        return pyast.Subscript(
+            value=self.translate(node.value),
+            slice=self.translate(node.range),
+            ctx=pyast.Load())
+
+    def translate_Index(self, node: ast.Index) -> pyast.Index:
+        return pyast.Index(value=self.translate(node.value))
+
+    def translate_Slice(self, node: ast.Slice) -> pyast.Slice:
+        return pyast.Slice(
+            lower=self.translate(node.lower),
+            upper=self.translate(node.upper),
+            step=self.translate(node.step))
+
     BINARY_OPERATORS = {"+": pyast.Add(),
                         "-": pyast.Sub(),
                         "**": pyast.Pow(),
