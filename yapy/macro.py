@@ -48,35 +48,41 @@ class MacroExpander(ast.NodeTransducer):
         exprs = []
         ops = []
 
+        def get_prev_priority():
+            nonlocal ops
+            assert len(ops) != 0
+            return ops[-1]["priority"]
+
+        def pop_prev_op():
+            nonlocal ops
+            assert len(ops) != 0
+            return ops.pop()["op"]
+
         def construct_binary_operation():
             nonlocal exprs, ops
             assert len(exprs) > 1 and len(ops) > 0
-            op = ops.pop()["op"]
+            op = pop_prev_op()
             rhs = self.transduce(exprs.pop())
             lhs = self.transduce(exprs.pop())
             bop = ast.BinaryOperation(lhs, op, rhs)
             exprs.append(bop)
 
         exprs_and_ops = node.terms_and_ops
-        for i in range(len(exprs_and_ops)):
+        # for i in range(len(exprs_and_ops)):
+        for i, v in enumerate(exprs_and_ops):
             if i % 2 == 0:
                 # expression
-                expr = exprs_and_ops[i]  # type: ast.Expression
-                exprs.append(expr)
+                exprs.append(v)
             else:
                 # operator
-                op = exprs_and_ops[i]  # type: ast.BinaryOperator
+                op = v  # type: ast.BinaryOperator
                 if op.op not in self.OPERATOR_PRIORITIES:
                     raise MacroExpantionError("unsupported binary operator {0}".format(op.op))
                 priority = self.OPERATOR_PRIORITIES[op.op]
 
-                if len(ops) == 0:
-                    ops.append({"op": op, "priority": priority})
-                else:
-                    # compare operator's priority
-                    if ops[-1]["priority"] > priority:
-                        construct_binary_operation()
-                    ops.append({"op": op, "priority": priority})
+                while (len(ops) > 0) and (get_prev_priority() > priority):
+                    construct_binary_operation()
+                ops.append({"op": op, "priority": priority})
 
         while len(ops) > 0:
             construct_binary_operation()

@@ -1,5 +1,6 @@
 import argparse
 import ast
+import enum
 import yapy.parser
 import yapy.macro
 import yapy.translator
@@ -60,18 +61,92 @@ def compile_yapy(source: str, filename: str, mode: str="exec", verbose=False, re
 
 def create_initial_environment() -> dict:
     """Create and return an initial yapy environment"""
-    env = {}
-    env["__builtins__"] = globals()["__builtins__"]
+    def yapy_assert(v: bool):
+        assert v
+
+    env = {"__builtins__": globals()["__builtins__"],
+           "require": yapy_assert}
     return env
 
 
-def run_REPL(verbose=False):
+class ExecutionStatus(enum.Enum):
+    OK = 0
+    KEYBOARD_INTERRUPT = 1
+    PARSE_ERROR = 2
+    MACRO_EXPANSION_ERROR = 3
+    TRANSLATION_ERROR = 4
+    ASSERTION_ERROR = 5
+    INTERNAL_ERROR = 6
+
+
+class ExecutionResults:
+    """yapy execution results"""
+    def __init__(self, status, env: dict, exception: Exception=None):
+        self._status = status
+        self._env = env
+        self._exception = exception
+
+    @classmethod
+    def create_execution_results(cls, env: dict, e: Exception=None):
+        if e is None:
+            return cls(ExecutionStatus.OK, env)
+        elif isinstance(e, KeyboardInterrupt):
+            return cls(ExecutionStatus.KEYBOARD_INTERRUPT, env, e)
+        elif isinstance(e, pyparsing.ParseException):
+            return cls(ExecutionStatus.PARSE_ERROR, env, e)
+        elif isinstance(e, yapy.macro.MacroExpantionError):
+            return cls(ExecutionStatus.MACRO_EXPANSION_ERROR, env, e)
+        elif isinstance(e, yapy.translator.TranslationError):
+            return cls(ExecutionStatus.TRANSLATION_ERROR, env, e)
+        elif isinstance(e, AssertionError):
+            return cls(ExecutionStatus.ASSERTION_ERROR, env, e)
+        else:
+            return cls(ExecutionStatus.INTERNAL_ERROR, env, e)
+
+    @property
+    def status(self):
+        return self._status
+
+    @property
+    def env(self) -> dict:
+        return self._env
+
+    @property
+    def exception(self) -> Exception:
+        return self._exception
+
+    MESSAGES = {ExecutionStatus.PARSE_ERROR: "Syntax error: {0}",
+                ExecutionStatus.KEYBOARD_INTERRUPT: "",
+                ExecutionStatus.MACRO_EXPANSION_ERROR: "Macro expansion error: {0}",
+                ExecutionStatus.TRANSLATION_ERROR: "Translation error: {0}",
+                ExecutionStatus.ASSERTION_ERROR: "Assertion error: {0}",
+                ExecutionStatus.INTERNAL_ERROR: "INTERNAL ERROR!"}
+
+    @property
+    def ok(self) -> bool:
+        return self.status == ExecutionStatus.OK
+
+    @property
+    def fatal(self) -> bool:
+        return self.status == ExecutionStatus.INTERNAL_ERROR
+
+    @property
+    def message(self) -> str:
+        if self.ok:
+            return ""
+        else:
+            return self.MESSAGES[self.status].format(self.exception)
+
+
+def run_REPL(verbose: bool=False, env: dict=None) -> ExecutionResults:
     """Execute yapy Read-Eval-Print-Loop"""
     def _output_error(msg):
         import sys
         print(msg, file=sys.stderr)
 
-    env = create_initial_environment()
+    if env is None:
+        env = create_initial_environment()
+
     result_id = 1
     history = prompt_toolkit.history.History()
 
@@ -88,41 +163,61 @@ def run_REPL(verbose=False):
                 print()
                 result_id += 1
             except pyparsing.ParseException as e:
-                _output_error("Syntax error: {0}".format(e))
+                _output_error(ExecutionResults.create_execution_results(env, e).message)
 
-    except yapy.macro.MacroExpantionError as e:
-        _output_error("Macro expansion error: {0}".format(e))
-    except yapy.translator.TranslationError as e:
-        _output_error("Translation error: {0}".format(e))
+    except KeyboardInterrupt as e:
+        return ExecutionResults.create_execution_results(env, e)
     except Exception as e:
-        _output_error("Internal error: {0}".format(e))
-        import traceback
-        traceback.print_exc()
+        results = ExecutionResults.create_execution_results(env, e)
+        _output_error(results.message)
+        if results.fatal:
+            import traceback
+            traceback.print_exc()
+        return results
+
+    else:
+        return ExecutionResults.create_execution_results(env)
 
 
-def compile_and_execute(source: str, filename: str):
+def run_interpreter(source: str, filename: str, env: dict=None) -> ExecutionResults:
+    """
+    Run yapy interpreter
+    :param source: yapy source contents
+    :param filename: yapy source file name
+    :param env: global and local environment. create an initial environment if env is None
+    :return: execution results
+    """
+    results = compile_and_execute(source, filename, env)
+
+    if not results.ok:
+        import sys
+        print(results.message, file=sys.stderr)
+
+        if results.fatal:
+            import traceback
+            traceback.print_exc()
+
+    return results
+
+
+def compile_and_execute(source: str, filename: str, env: dict=None):
     """
     Compile and execute a yapy source
     :param source: yapy source contents
+    :param filename: yapy source file name
+    :param env: global and local environment. create an initial environment if env is None
+    :return: execution results
     """
-    def _output_error(msg):
-        import sys
-        print(msg, file=sys.stderr)
+    if env is None:
+        env = create_initial_environment()
 
     try:
         code_object = compile_yapy(source, filename, "exec", verbose=False)
-        env = create_initial_environment()
         exec(code_object, env, env)
-    except pyparsing.ParseException as e:
-        _output_error("Syntax error: {0}".format(e))
-    except yapy.macro.MacroExpantionError as e:
-        _output_error("Macro expansion error: {0}".format(e))
-    except yapy.translator.TranslationError as e:
-        _output_error("Translation error: {0}".format(e))
     except Exception as e:
-        _output_error("Internal error: {0}".format(e))
-        import traceback
-        traceback.print_exc()
+        return ExecutionResults.create_execution_results(env, e)
+    else:
+        return ExecutionResults.create_execution_results(env)
 
 
 def create_argparser() -> argparse.ArgumentParser:
@@ -143,4 +238,4 @@ if __name__ == "__main__":
     else:
         # compile and execute
         with open(args.file) as f:
-            compile_and_execute(f.read(), args.file)
+            run_interpreter(f.read(), args.file)
