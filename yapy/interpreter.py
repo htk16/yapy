@@ -86,22 +86,21 @@ class ExecutionResults:
         self._env = env
         self._exception = exception
 
+    EXCEPTION_PATTERN = [(KeyboardInterrupt, ExecutionStatus.KEYBOARD_INTERRUPT),
+                         (pyparsing.ParseException, ExecutionStatus.PARSE_ERROR),
+                         (yapy.macro.MacroExpantionError, ExecutionStatus.MACRO_EXPANSION_ERROR),
+                         (yapy.translator.TranslationError, ExecutionStatus.TRANSLATION_ERROR),
+                         (AssertionError, ExecutionStatus.ASSERTION_ERROR)]
+
     @classmethod
     def create_execution_results(cls, env: dict, e: Exception=None):
         if e is None:
             return cls(ExecutionStatus.OK, env)
-        elif isinstance(e, KeyboardInterrupt):
-            return cls(ExecutionStatus.KEYBOARD_INTERRUPT, env, e)
-        elif isinstance(e, pyparsing.ParseException):
-            return cls(ExecutionStatus.PARSE_ERROR, env, e)
-        elif isinstance(e, yapy.macro.MacroExpantionError):
-            return cls(ExecutionStatus.MACRO_EXPANSION_ERROR, env, e)
-        elif isinstance(e, yapy.translator.TranslationError):
-            return cls(ExecutionStatus.TRANSLATION_ERROR, env, e)
-        elif isinstance(e, AssertionError):
-            return cls(ExecutionStatus.ASSERTION_ERROR, env, e)
-        else:
-            return cls(ExecutionStatus.INTERNAL_ERROR, env, e)
+        for exception, status in cls.EXCEPTION_PATTERN:
+            if isinstance(e, exception):
+                return cls(status, env, e)
+
+        return cls(ExecutionStatus.INTERNAL_ERROR, env, e)
 
     @property
     def status(self):
@@ -115,13 +114,6 @@ class ExecutionResults:
     def exception(self) -> Exception:
         return self._exception
 
-    MESSAGES = {ExecutionStatus.PARSE_ERROR: "Syntax error: {0}",
-                ExecutionStatus.KEYBOARD_INTERRUPT: "",
-                ExecutionStatus.MACRO_EXPANSION_ERROR: "Macro expansion error: {0}",
-                ExecutionStatus.TRANSLATION_ERROR: "Translation error: {0}",
-                ExecutionStatus.ASSERTION_ERROR: "Assertion error: {0}",
-                ExecutionStatus.INTERNAL_ERROR: "INTERNAL ERROR!"}
-
     @property
     def ok(self) -> bool:
         return self.status == ExecutionStatus.OK
@@ -129,6 +121,13 @@ class ExecutionResults:
     @property
     def fatal(self) -> bool:
         return self.status == ExecutionStatus.INTERNAL_ERROR
+
+    MESSAGES = {ExecutionStatus.PARSE_ERROR: "Syntax error: {0}",
+                ExecutionStatus.KEYBOARD_INTERRUPT: "",
+                ExecutionStatus.MACRO_EXPANSION_ERROR: "Macro expansion error: {0}",
+                ExecutionStatus.TRANSLATION_ERROR: "Translation error: {0}",
+                ExecutionStatus.ASSERTION_ERROR: "Assertion error: {0}",
+                ExecutionStatus.INTERNAL_ERROR: "INTERNAL ERROR!"}
 
     @property
     def message(self) -> str:

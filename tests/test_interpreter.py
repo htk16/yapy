@@ -19,13 +19,37 @@ def _fail(source, **args):
     _test(source, ExecutionStatus.ASSERTION_ERROR, **args)
 
 
+def test_boolean():
+    """Tests for boolean"""
+    _test("require(True)")
+    _fail("require(False)")
+
+    _test("require(!False)")
+    _fail("require(!True)")
+
+    _test("require(True = True)")
+    _test("require(False = False)")
+    _fail("require(True = False)")
+
+    _test("require(True | True)")
+    _test("require(True | False)")
+    _test("require(False | True)")
+    _fail("require(False | False)")
+
+    _test("require(True & True)")
+    _fail("require(True & False)")
+    _fail("require(False & True)")
+    _fail("require(False & False)")
+
+
 def test_numbers():
     """Tests for numbers"""
     _test("0")
     _test("1024")
     _test("3.14")
     _test("6.02 * 10 ** 23")
-    # _test("-256")
+    _test("-256")
+    _test("-3.14")
 
     _test("require(1 = 1)")
     _fail("require(1 = 0)")

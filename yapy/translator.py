@@ -118,6 +118,17 @@ class PythonTranslator:
             upper=self.translate(node.upper),
             step=self.translate(node.step))
 
+    UNARY_OPERATORS = {"-": pyast.USub(),
+                       "!": pyast.Not()}
+
+    def translate_UnaryOperation(self, node: ast.UnaryOperation) -> pyast.UnaryOp:
+        if node.op.op not in self.UNARY_OPERATORS:
+            raise TranslationError("Unsupported unary operator: {0}".format(node.op))
+
+        return pyast.UnaryOp(
+            op=self.UNARY_OPERATORS[node.op.op],
+            operand=self.translate(node.expr))
+
     BINARY_OPERATORS = {"+": pyast.Add(),
                         "-": pyast.Sub(),
                         "**": pyast.Pow(),

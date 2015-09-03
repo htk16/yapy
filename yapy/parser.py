@@ -60,7 +60,7 @@ def create_type_ast(s: str, loc: int, toks: pyparsing.ParseResults):
 PrimitiveType_GenericType = (
     delimitedList(Identifier, Dot)("names") +
     Optional(TypeParameters)("params")).setParseAction(create_type_ast)
-TypeTuple = (Ign('(') + OpNewLines + delimitedList(Type, Comma)("types") + OpNewLines  +  Ign(')')).setParseAction(
+TypeTuple = (Ign('(') + OpNewLines + delimitedList(Type, Comma)("types") + OpNewLines + Ign(')')).setParseAction(
     lambda t: ast.TypeTuple(t.types.asList()))
 Type << (PrimitiveType_GenericType | TypeTuple)
 
