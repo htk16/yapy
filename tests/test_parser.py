@@ -144,6 +144,9 @@ def test_statement_parsing():
                               [tvar("x", ptype("Int")), tvar("y", ptype("Int"))],
                               ptype("Int"),
                               Block([bops(var("x"), bop("*"), var("y"))]))
+    assert parse(parser.Statement, "assert(True)") == Assert(Boolean(True), NoneValue())
+    assert parse(parser.Statement, 'assert(False, "fail")') == Assert(Boolean(False), String("fail"))
+
 
 def test_module_parsing():
     """Test for module parsing"""

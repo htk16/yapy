@@ -73,6 +73,10 @@ class PythonTranslator:
                         body=if_stmts.then_statements,
                         orelse=if_stmts.else_statements)
 
+    def translate_Assert(self, node: ast.Assert) -> pyast.Assert:
+        return pyast.Assert(test=self.translate(node.expr),
+                            msg=self.translate(node.msg))
+
     def translate_Block(self, node: ast.Block) -> list:
         return self.translate_as_stmt(node.statements)
 

@@ -142,8 +142,9 @@ class Statement(Node):
                 | Import
                 | FunctionDefinition
                 | Return
-                | Expression
                 | IfStatement
+                | Assert
+                | Expression
     """
 
 
@@ -234,6 +235,24 @@ class IfStatement(Statement):
     @property
     def else_statements(self) -> list:
         return self._else_statements
+
+
+class Assert(Statement):
+    """Assertion
+
+    Assert ::= 'assert' '(' Expression [',' Expression] ')'
+    """
+    def __init__(self, expr: "Expression", msg: "Expression"):
+        self._expr = expr
+        self._msg = msg
+
+    @property
+    def expr(self) -> "Expression":
+        return self._expr
+
+    @property
+    def msg(self) -> "Expression":
+        return self._msg
 
 
 class VariableBinding(Statement):

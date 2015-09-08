@@ -61,11 +61,7 @@ def compile_yapy(source: str, filename: str, mode: str="exec", verbose=False, re
 
 def create_initial_environment() -> dict:
     """Create and return an initial yapy environment"""
-    def yapy_assert(v: bool):
-        assert v
-
-    env = {"__builtins__": globals()["__builtins__"],
-           "require": yapy_assert}
+    env = {"__builtins__": globals()["__builtins__"]}
     return env
 
 

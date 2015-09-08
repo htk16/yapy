@@ -83,8 +83,8 @@ TypedVariable = (Variable("var") +
                  Optional(Ign(":") + OpNewLine + Type, default=ast.Unsolved())("var_type")).setParseAction(
     lambda t: ast.TypedVariable(t.var, t.var_type[0]))
 Term0 = (List
-         | Set
          | Dict
+         | Set
          | Primitive
          | Variable
          | Ign("(") + Expression + Ign(")"))
@@ -172,10 +172,14 @@ FunctionDefinition = (Ign("def") + Identifier("name") +
                       Ign(":") + Type("return_type") +
                       Ign('=') + OpNewLine + Block("body")).setParseAction(
     lambda t: ast.FunctionDefinition(t.name, t.params.asList(), t.return_type, t.body))
+Assert = (Ign("assert") + Ign("(") + Expression("expr") +
+          Optional(Ign(",") + Expression, ast.NoneValue())("msg") +
+          Ign(")")).setParseAction(lambda t: ast.Assert(t.expr, t.msg[0]))
 Statement << (For
               | VariableBinding
               | Import
               | FunctionDefinition
+              | Assert
               | Expression)
 
 

@@ -20,31 +20,35 @@ def _fail(source, **args):
     _test(source, ExecutionStatus.ASSERTION_ERROR, **args)
 
 
-def _require(source, **args):
-    _test('require({0})'.format(source), **args)
+def _assert(source, **args):
+    _test('assert({0})'.format(source), **args)
+
+
+def _assert_fail(source, **args):
+    _fail('assert({0})'.format(source), **args)
 
 
 def test_boolean():
     """Tests for boolean"""
-    _test("require(True)")
-    _fail("require(False)")
+    _assert("True")
+    _assert_fail("(False)")
 
-    _test("require(!False)")
-    _fail("require(!True)")
+    _assert("!False")
+    _assert_fail("(!True)")
 
-    _test("require(True = True)")
-    _test("require(False = False)")
-    _fail("require(True = False)")
+    _assert("True = True")
+    _assert("False = False")
+    _assert_fail("True = False")
 
-    _test("require(True | True)")
-    _test("require(True | False)")
-    _test("require(False | True)")
-    _fail("require(False | False)")
+    _assert("True | True")
+    _assert("True | False")
+    _assert("False | True")
+    _assert_fail("False | False")
 
-    _test("require(True & True)")
-    _fail("require(True & False)")
-    _fail("require(False & True)")
-    _fail("require(False & False)")
+    _assert("True & True")
+    _assert_fail("True & False")
+    _assert_fail("False & True")
+    _assert_fail("False & False")
 
 
 def test_numbers():
@@ -56,28 +60,28 @@ def test_numbers():
     _test("-256")
     _test("-3.14")
 
-    _test("require(1 = 1)")
-    _fail("require(1 = 0)")
-    _test("require(0 != 1)")
-    _test("require(1 + 2 * 3 = 7)")
-    _fail("require(1 + 2 * 3 = 6)")
-    _test("require(100 + 20 + 3 = 200 - 77)")
-    _test("require(25 = 100 / 4)")
+    _assert("1 = 1")
+    _assert_fail("(1 = 0)")
+    _assert("0 != 1")
+    _assert("1 + 2 * 3 = 7")
+    _assert_fail("(1 + 2 * 3 = 6)")
+    _assert("100 + 20 + 3 = 200 - 77")
+    _assert("25 = 100 / 4")
 
 
 def test_strings():
     """Tests for strings"""
-    _require('"hoge" = "hoge"')
-    _require('"hoge" != "fuga"')
-    _require('"" = ""')
+    _assert('"hoge" = "hoge"')
+    _assert('"hoge" != "fuga"')
+    _assert('"" = ""')
 
 
 def test_list():
     """Tests for lists"""
-    _require('len([]) = 0')
-    _require('["foo", "bar"] = ["foo", "bar"]')
-    _require('len([1, 2, 4]) = 3')
-    _require('len(["hoge"] * 5) = 5')
+    _assert('len([]) = 0')
+    _assert('["foo", "bar"] = ["foo", "bar"]')
+    _assert('len([1, 2, 4]) = 3')
+    _assert('len(["hoge"] * 5) = 5')
 
 
 def test_functions():
@@ -85,17 +89,17 @@ def test_functions():
     # sum
     _test("""
     def sum(x: Int, y: Int): Int = x + y
-    require(sum(0, 0) = 0)
-    require(sum(4, 16) = 20)
-    require(sum(1024, -512) = 512)
+    assert(sum(0, 0) = 0)
+    assert(sum(4, 16) = 20)
+    assert(sum(1024, -512) = 512)
     """)
 
     # factrial
     _test("""
     def fact(n: Int): Int = if n < 2 then 1 else n * fact(n - 1)
-    require(fact(0) = 1)
-    require(fact(1) = 1)
-    require(fact(10) = 3628800)
+    assert(fact(0) = 1)
+    assert(fact(1) = 1)
+    assert(fact(10) = 3628800)
     """)
 
     # quick sort
@@ -109,5 +113,5 @@ def test_functions():
         }
     }
 
-    require(qsort([1]) = [1])
-    require(qsort([4, 2, 3, 1]) = [1, 2, 3, 4])""")
+    assert(qsort([1]) = [1])
+    assert(qsort([4, 2, 3, 1]) = [1, 2, 3, 4])""")
