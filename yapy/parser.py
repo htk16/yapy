@@ -67,14 +67,17 @@ Type << (PrimitiveType_GenericType | TypeTuple)
 # Expressions
 Expression = Forward()
 
+
 # Term0: Primitive data structures
-List = (Ign('[') + OpNewLines +delimitedList(Expression, Comma)("elems") + OpNewLines + Ign(']')).setParseAction(
+def container_elements(elem_parser):
+    return Optional(delimitedList(elem_parser, Comma), [])
+List = (Ign('[') + OpNewLines + container_elements(Expression)("elems") + OpNewLines + Ign(']')).setParseAction(
     lambda t: ast.List(t.elems.asList()))
-Set = (Ign('{') + OpNewLines + delimitedList(Expression, Comma)("elems") + OpNewLines + Ign('}')).setParseAction(
+Set = (Ign('{') + OpNewLines + container_elements(Expression)("elems") + OpNewLines + Ign('}')).setParseAction(
     lambda t: ast.Set(t.elems.asList()))
 KeyValue = (Expression("key") + Ign(":") + OpNewLine + Expression("value")).setParseAction(
     lambda t: ast.KeyValue(t.key, t.value))
-Dict = (Ign('{') + OpNewLines + delimitedList(KeyValue)("elems") + OpNewLines + Ign('}')).setParseAction(
+Dict = (Ign('{') + OpNewLines + container_elements(KeyValue)("elems") + OpNewLines + Ign('}')).setParseAction(
     lambda t: ast.Dict(t.elems.asList()))
 TypedVariable = (Variable("var") +
                  Optional(Ign(":") + OpNewLine + Type, default=ast.Unsolved())("var_type")).setParseAction(
@@ -86,9 +89,11 @@ Term0 = (List
          | Variable
          | Ign("(") + Expression + Ign(")"))
 
+
 # Term1: Attribute reference
 Attribute = (Term0("expr") + Ign(".") + Identifier("attr")).setParseAction(lambda t: ast.Attribute(t.expr, t.attr))
 Term1 = (Term0 ^ Attribute)
+
 
 # Term2: Function call
 Arguments = Optional(delimitedList(Expression, Comma).setParseAction(lambda t: t.asList()), [])
@@ -106,14 +111,10 @@ Slice = (Expression("lower") + Ign(":") + OpNewLine + Expression("upper")).setPa
     lambda t: ast.Slice(t.lower, t.upper, ast.Integer(1)))
 # Range = (Index ^ Slice)
 Range = Index
-def create_Subscript(s: str, loc: int, toks: pyparsing.ParseResults):
-    print("Subscript:", toks)
-    print("Subscript attr:", toks.asDict())
-    return ast.Subscript(toks.value, toks.range)
-Subscript = (Term1("value") + Ign('[') + Range("range") + Ign(']')).setParseAction(create_Subscript)
-# Subscript = (Term1("value") + Ign('[') + Range("range") + Ign(']')).setParseAction(
-#     lambda _s, _loc, toks: ast.Subscript(toks.value, toks.range))
+Subscript = (Term1("value") + Ign('[') + Range("range") + Ign(']')).setParseAction(
+    lambda _s, _loc, toks: ast.Subscript(toks.value, toks.range))
 Term2 = (Term1 ^ FunctionCall ^ Subscript)
+
 
 # Term3: Basic expressions
 Statement = Forward()
@@ -140,6 +141,7 @@ Term3 = (If
          | Function
          | Term2)
 
+
 # Term4: Unary Operation
 unary_operators = ["-", "!"]
 UnaryOperator = Literals(unary_operators)("op").setParseAction(lambda t: ast.UnaryOperator(t.op))
@@ -147,12 +149,14 @@ UnaryOperation = (UnaryOperator("op") + Expression("expr")).setParseAction(lambd
 Term4 = (UnaryOperation
          | Term3)
 
+
 # Term5: Binary Operationw
 BinaryOperator = Word("=<>@^|&+-*/%?!~")("bop").setParseAction(lambda t: ast.BinaryOperator(t.bop))
 BinaryOperations = (Term4 + OneOrMore(OpNewLine + BinaryOperator + OpNewLine + Term4)).setParseAction(
     lambda t: ast.BinaryOperations(t.asList()))
 Term5 = BinaryOperations | Term4
 Expression << Term5
+
 
 # Statement
 For = (Ign("for") + Ign('(') + OpNewLine + Variable("var") + OpNewLine +
@@ -173,6 +177,7 @@ Statement << (For
               | Import
               | FunctionDefinition
               | Expression)
+
 
 # Module & Interactive
 Module = delimitedList(Statement, BlockDelimiter)("stmts").setParseAction(lambda t: ast.Module(t.stmts.asList()))

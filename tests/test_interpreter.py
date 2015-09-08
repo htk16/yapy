@@ -1,6 +1,7 @@
 import yapy.interpreter as interpreter
 ExecutionStatus = interpreter.ExecutionStatus
 
+
 def _test(source,
           expection_status=interpreter.ExecutionStatus.OK,
           expection_env: dict=None,
@@ -17,6 +18,10 @@ def _test(source,
 
 def _fail(source, **args):
     _test(source, ExecutionStatus.ASSERTION_ERROR, **args)
+
+
+def _require(source, **args):
+    _test('require({0})'.format(source), **args)
 
 
 def test_boolean():
@@ -62,5 +67,47 @@ def test_numbers():
 
 def test_strings():
     """Tests for strings"""
-    _test('require("hoge" = "hoge")')
-    _test('require("hoge" != "fuga")')
+    _require('"hoge" = "hoge"')
+    _require('"hoge" != "fuga"')
+    _require('"" = ""')
+
+
+def test_list():
+    """Tests for lists"""
+    _require('len([]) = 0')
+    _require('["foo", "bar"] = ["foo", "bar"]')
+    _require('len([1, 2, 4]) = 3')
+    _require('len(["hoge"] * 5) = 5')
+
+
+def test_functions():
+    """Tests for functions"""
+    # sum
+    _test("""
+    def sum(x: Int, y: Int): Int = x + y
+    require(sum(0, 0) = 0)
+    require(sum(4, 16) = 20)
+    require(sum(1024, -512) = 512)
+    """)
+
+    # factrial
+    _test("""
+    def fact(n: Int): Int = if n < 2 then 1 else n * fact(n - 1)
+    require(fact(0) = 1)
+    require(fact(1) = 1)
+    require(fact(10) = 3628800)
+    """)
+
+    # quick sort
+    _test("""
+    def qsort(xs: List[Int]): List[Int] = {
+        if len(xs) <= 1
+        then xs
+        else {
+            let mid: Int = xs[0]
+            qsort(list(filter(fn(x) = x < mid, xs))) + [mid] + qsort(list(filter(fn(x) = x > mid, xs)))
+        }
+    }
+
+    require(qsort([1]) = [1])
+    require(qsort([4, 2, 3, 1]) = [1, 2, 3, 4])""")
