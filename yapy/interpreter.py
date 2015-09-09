@@ -143,7 +143,7 @@ def run_REPL(verbose: bool=False, env: dict=None) -> ExecutionResults:
         env = create_initial_environment()
 
     result_id = 1
-    history = prompt_toolkit.history.History()
+    history = prompt_toolkit.history.InMemoryHistory()
 
     try:
         while True:
