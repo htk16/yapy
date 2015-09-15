@@ -49,7 +49,7 @@ def test_binary_operations():
 
 
 def test_hoisting_anonymous_functions():
-    hoister = macro.AnonymousFunctionHoister
+    hoister = macro.BlockHoister.AnonymousFunctionHoister
     parse_module = parser.parse_module
     assert not hoister().need_transduce(parse_module("1 + 2 * 3; [1, 2, 3]"))
     assert hoister().need_transduce(parse_module("fn(): Int = 10"))
