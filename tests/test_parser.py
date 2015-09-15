@@ -5,23 +5,30 @@ from yapy.ast import *
 def parse(p, cnt) -> Node:
     return p.parseString(cnt, parseAll=True)[0]
 
+
 def module(*names) -> ModuleName:
     return ModuleName(list(names))
+
 
 def ptype(*names) -> PrimitiveType:
     return PrimitiveType(module(*names[:-1]), names[-1])
 
+
 def gtype(names: list, params: list) -> GenericType:
     return GenericType(module(*names[:-1]), names[-1], params)
+
 
 def var(name: str) -> Variable:
     return Variable(name)
 
+
 def tvar(name: str, type_name: Type) -> TypedVariable:
     return TypedVariable(var(name), type_name)
 
+
 def bop(name: str) -> BinaryOperator:
     return BinaryOperator(name)
+
 
 def bops(*elems: list) -> BinaryOperations:
     return BinaryOperations(list(elems))
@@ -143,7 +150,7 @@ def test_statement_parsing():
            FunctionDefinition("mul",
                               [tvar("x", ptype("Int")), tvar("y", ptype("Int"))],
                               ptype("Int"),
-                              Block([bops(var("x"), bop("*"), var("y"))]))
+                              StatementBlock([bops(var("x"), bop("*"), var("y"))]))
     assert parse(parser.Statement, "assert(True)") == Assert(Boolean(True), NoneValue())
     assert parse(parser.Statement, 'assert(False, "fail")') == Assert(Boolean(False), String("fail"))
 
@@ -153,12 +160,12 @@ def test_module_parsing():
     assert parse(parser.Module, """
     def sum(x: Int, y: Int): Int = (x + y)
     let result: Int = sum(1, 2)""") == \
-           Module([
+           Module(StatementBlock([
                FunctionDefinition("sum",
                                   [tvar("x", ptype("Int")), tvar("y", ptype("Int"))],
                                   ptype("Int"),
-                                  Block([bops(var("x"), bop("+"), var("y"))])),
+                                  StatementBlock([bops(var("x"), bop("+"), var("y"))])),
                VariableBinding(tvar("result", ptype("Int")),
                                FunctionCall(var("sum"),
-                                            [Integer(1), Integer(2)]))])
+                                            [Integer(1), Integer(2)]))]))
 

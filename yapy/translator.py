@@ -49,13 +49,16 @@ class PythonTranslator:
             defaults=[])
 
     def translate_Module(self, node: ast.Module) -> pyast.Module:
-        return pyast.Module(body=list(self.translate_as_stmt(stmt) for stmt in node.statements))
+        return pyast.Module(body=self.translate(node.block))
 
     def translate_Interactive(self, node: ast.Interactive) -> pyast.Interactive:
-        return pyast.Interactive(body=list(self.translate_as_stmt(stmt) for stmt in node.statements))
+        return pyast.Interactive(body=self.translate(node.block))
 
     def translate_Import(self, node: ast.Import) -> pyast.Import:
         return pyast.Import(names=[pyast.alias(name=node.module_name.name, asname=None)])
+
+    def translate_StatementBlock(self, node: ast.StatementBlock) -> list:
+        return [self.translate_as_stmt(stmt) for stmt in node.statements]
 
     def translate_FunctionDefinition(self, node: ast.FunctionDefinition) -> pyast.FunctionDef:
         return pyast.FunctionDef(
@@ -76,9 +79,6 @@ class PythonTranslator:
     def translate_Assert(self, node: ast.Assert) -> pyast.Assert:
         return pyast.Assert(test=self.translate(node.expr),
                             msg=self.translate(node.msg))
-
-    def translate_Block(self, node: ast.Block) -> list:
-        return self.translate_as_stmt(node.statements)
 
     def translate_VariableBinding(self, node: ast.VariableBinding) -> pyast.Assign:
         return pyast.Assign(

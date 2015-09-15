@@ -97,23 +97,17 @@ class MacroExpander(ast.NodeTransducer):
     def _iter_transduced_Statements(self, statements: list):
         return (self.transduce(stmt) for stmt in AnonymousFunctionHoister.hoist_anonymous_functions(statements))
 
-    def need_transduce_Block(self, block: ast.Block) -> bool:
+    def need_transduce_StatementBlock(self, block: ast.StatementBlock) -> bool:
         return self._need_transduce_Statements(block.statements)
 
-    def transduce_Block(self, block: ast.Block) -> ast.Block:
-        return ast.Block(statements=list(self._iter_transduced_Statements(block.statements)))
+    def transduce_StatementBlock(self, block: ast.StatementBlock) -> ast.StatementBlock:
+        return ast.StatementBlock(statements=list(self._iter_transduced_Statements(block.statements)))
 
-    def need_transduce_Module(self, module: ast.Module) -> bool:
-        return self._need_transduce_Statements(module.statements)
+    def need_transduce_Block(self, _: ast.Block) -> bool:
+        return True
 
-    def transduce_Module(self, module: ast.Module) -> ast.Module:
-        return ast.Module(statements=list(self._iter_transduced_Statements(module.statements)))
-
-    def need_transduce_Interactive(self, interactive: ast.Interactive) -> bool:
-        return self._need_transduce_Statements(interactive.statements)
-
-    def transduce_Interactive(self, interactive: ast.Interactive) -> ast.Interactive:
-        return ast.Interactive(statements=list(self._iter_transduced_Statements(interactive.statements)))
+    def transduce_Block(self, _: ast.Block):
+        raise MacroExpantionError("Must not expand a Block node directly.")
 
     def transduce_FunctionDefinition(self, definition: ast.FunctionDefinition) -> ast.FunctionDefinition:
         transduced_body = self.transduce(definition.body)
@@ -132,11 +126,9 @@ class MacroExpander(ast.NodeTransducer):
                 name=definition.name,
                 params=definition.params,
                 return_type=definition.return_type,
-                body=ast.Block(transduced_statements)
-            )
+                body=ast.StatementBlock(transduced_statements))
 
     def need_transduce_FunctionDefinition(self, func_def: ast.FunctionDefinition) -> bool:
-        # TODO: Check last statement is a Return statement
         return self.need_transduce(func_def.body) or isinstance(func_def.body.statements[-1], ast.Expression)
 
     def transduce_Function(self, _: ast.Function) -> ast.Node:
@@ -172,7 +164,11 @@ class AnonymousFunctionHoister(ast.NodeTransducer):
             else:
                 yield stmt
 
-    def _create_hoisted_function(self, params: list, body: ast.Block, return_type: ast.Type) -> str:
+    @classmethod
+    def convert_Block_to_FunctionBody(cls, block: ast.Block) -> ast.StatementBlock:
+        return ast.StatementBlock(block.statements)
+
+    def _create_hoisted_function(self, params: list, body: ast.StatementBlock, return_type: ast.Type) -> str:
         """Create a hoisted function and return its name
 
         :param params: function parameters
@@ -197,37 +193,27 @@ class AnonymousFunctionHoister(ast.NodeTransducer):
 
     def transduce_Function(self, node: ast.Function) -> ast.Node:
         # TODO: Return Lambda node if node's body has only one expression
-        func_name = self._create_hoisted_function(node.params, node.body, node.return_type)
+        func_body = self.convert_Block_to_FunctionBody(node.body)
+        func_name = self._create_hoisted_function(node.params, func_body, node.return_type)
         return ast.Variable(func_name)
 
     def need_transduce_Function(self, _: ast.Function) -> bool:
         # Function node be must transduced to Lambda or FunctionDefinition
         return True
 
-    def transduce_If(self, node: ast.If) -> ast.Node:
-        def _transcduce_if_block(if_block: ast.Node) -> ast.Expression:
-            if isinstance(if_block, ast.Block):
-                if len(if_block.statements) == 1:
-                    # single statement block
-                    return if_block.statements[0]
-                else:
-                    # multi statement block
-                    func_name = self._create_hoisted_function([], if_block, ast.Unsolved)
-                    return ast.FunctionCall(func=ast.Variable(func_name),
-                                            params=[])
-            else:
-                assert isinstance(if_block, ast.Expression)
-                return if_block
+    def transduce_Block(self, block: ast.Block) -> ast.Node:
+        if len(block.statements) == 1 and isinstance(block.statements[0], ast.Expression):
+            # single expression block
+            return block.statements[0]
+        else:
+            # multi statement block
+            func_body = self.convert_Block_to_FunctionBody(block)
+            func_name = self._create_hoisted_function([], func_body, ast.Unsolved)
+            return ast.FunctionCall(func=ast.Variable(func_name), params=[])
 
-        return ast.If(cond=node.cond,
-                      then_expr=_transcduce_if_block(node.then_expr),
-                      else_expr=_transcduce_if_block(node.else_expr))
-
-    def need_transduce_If(self, node: ast.If) -> bool:
-        return isinstance(node.then_expr, ast.Block) and isinstance(node.else_expr, ast.Block)
 
     def need_transduce_Block(self, _: ast.Block) -> bool:
-        return False
+        return True
 
 
 class ResultStoringTransducer(ast.NodeTransducer):
@@ -240,8 +226,8 @@ class ResultStoringTransducer(ast.NodeTransducer):
         :param node: Module or Interactive AST node
         :return: transduced AST node to added result storing operation
         """
-        if isinstance(node.statements[-1], ast.Expression):
-            transduced_statements = node.statements.copy()
+        if isinstance(node.block.statements[-1], ast.Expression):
+            transduced_statements = node.block.statements.copy()
             # result = transduced_statements[-1]
             # is_none = ast.BinaryOperation(
             #     lhs=result,
@@ -259,9 +245,10 @@ class ResultStoringTransducer(ast.NodeTransducer):
             # )
             transduced_statements[-1] = ast.VariableBinding(
                 var=ast.TypedVariable(ast.Variable(self._result_name), ast.Any()),
-                expr=node.statements[-1]
+                expr=transduced_statements[-1]
             )
-            return node.__class__(statements=transduced_statements)
+            transduced_statement_block = ast.StatementBlock(statements=transduced_statements)
+            return node.__class__(block=transduced_statement_block)
         else:
             return node
 

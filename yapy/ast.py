@@ -20,6 +20,10 @@ class Node:
             if len(k) > 0 and k[0] == "_":
                 yield (k[1:], v)
 
+    def is_block(self) -> bool:
+        """Return True if self is a block node (Block or StatementBlock)"""
+        return False
+
 
 def _node2str(node) -> str:
     if isinstance(node, list):
@@ -53,7 +57,7 @@ def walk_in_scope(node: Node):
         if isinstance(child, list):
             for elem in child:
                 yield from walk_in_scope(elem)
-        elif (not isinstance(child, Node)) or isinstance(child, Block):
+        elif (not isinstance(child, Node)) or child.is_block():
             continue
         else:
             yield from walk_in_scope(child)
@@ -78,7 +82,7 @@ class NodeVisitor:
 
 
 class NodeTransducer:
-    def transduce(self, node: Node) -> Node:
+    def transduce(self, node) -> Node:
         """transduce an AST."""
         if not self.need_transduce(node):
             return node
@@ -113,26 +117,44 @@ class NodeTransducer:
 class Module(Node):
     """Module
 
-    Module ::= Statement { Statement }
+    Module ::= StatementBlock
     """
-    def __init__(self, statements: list):
-        self._statements = statements
+    def __init__(self, block: "StatementBlock"):
+        self._block = block
 
     @property
-    def statements(self):
-        return self._statements
+    def block(self):
+        return self._block
 
 
 class Interactive(Node):
     """Interactive
 
-    Interactive ::= Statement"""
+    Interactive ::= StatementBlock
+    """
+    def __init__(self, block: "StatementBlock"):
+        self._block = block
+
+    @property
+    def block(self):
+        return self._block
+
+
+class StatementBlock(Node):
+    """StatementBlock
+
+    StatementBlock ::= '{' Statements '}' | Statement
+    """
     def __init__(self, statements: list):
         self._statements = statements
 
     @property
-    def statements(self):
+    def statements(self) -> list:
         return self._statements
+
+    def is_block(self) -> bool:
+        """Return True if self is a block node (Block or StatementBlock)"""
+        return True
 
 
 class Statement(Node):
@@ -181,10 +203,11 @@ class Import(Statement):
 class FunctionDefinition(Statement):
     """Function definition
 
-    FunctionDefinition ::= 'fun' Identifier '(' Parameters ')' -> Type ':' Block
+    FunctionDefinition ::= 'fun' Identifier '(' Parameters ')' -> Type ':' FunctionBody
+    FunctionBody ::= '{' Statements '}' | Statement
     Parameters ::= [ TypedVariable { ',' TypedVariable } ]
     """
-    def __init__(self, name: str, params: list, return_type: "Type", body: "Block"):
+    def __init__(self, name: str, params: list, return_type: "Type", body: StatementBlock):
         self._name = name
         self._params = params
         self._return_type = return_type
@@ -203,7 +226,7 @@ class FunctionDefinition(Statement):
         return self._return_type
 
     @property
-    def body(self) -> "Block":
+    def body(self) -> StatementBlock:
         return self._body
 
 
@@ -306,6 +329,10 @@ class Block(Node):
     def statements(self) -> list:
         return self._statements
 
+    def is_block(self) -> bool:
+        """Return True if self is a block node (Block or StatementBlock)"""
+        return True
+
 
 class If(Expression):
     """if expression
@@ -313,7 +340,7 @@ class If(Expression):
     If ::= 'if' Expression 'then' IfBlock [ 'else' IfBlock ]
     IfBlock ::= Expression | Block
     """
-    def __init__(self, cond: Block, then_expr: Block, else_expr: Expression):
+    def __init__(self, cond: Expression, then_expr: Block, else_expr: Block):
         self._cond = cond
         self._then_expr = then_expr
         self._else_expr = else_expr
@@ -377,7 +404,8 @@ class Subscript(Expression):
 
     Subscript ::= Expression '[' (Index | Slice) ']'
     Index ::= Expression
-    Slice ::= Expression ':' Expression"""
+    Slice ::= Expression ':' Expression
+    """
     def __init__(self, value: Expression, range: Expression):
         self._value = value
         self._range = range
@@ -715,7 +743,7 @@ class PrimitiveType(Type):
 class GenericType(Type):
     """Generic type
 
-    GenericType ::= ModuleName TypeName '<' TypeParameters '>'
+    GenericType ::= ModuleName TypeName '[' TypeParameters ']'
     TypeParameters ::= Type { ',' Type }
     """
     def __init__(self, module_name: ModuleName, name: str, params: list):
