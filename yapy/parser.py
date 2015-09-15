@@ -47,23 +47,13 @@ ModuleName = delimitedList(Identifier, Dot).setParseAction(lambda t: ast.ModuleN
 TypeName = Identifier
 Type = Forward()
 Comma = Literal(",").setWhitespaceChars(" \t\n")
-TypeParameters = (Ign("[") + delimitedList(Type, Comma) + Ign(']')).setParseAction(lambda t: t.asList())
-def create_type_ast(s: str, loc: int, toks: pyparsing.ParseResults):
-    module_name = ast.ModuleName(toks.names[:-1])
-    typename = toks.names[-1]
-    return ast.PrimitiveType(module_name, typename) \
-        if toks.params == "" \
-        else ast.GenericType(module_name, typename, toks.params.asList())
-PrimitiveType_GenericType = (
-    delimitedList(Identifier, Dot)("names") +
-    Optional(TypeParameters)("params")).setParseAction(create_type_ast)
-PrimitiveType = delimitedList(Identifier, Dot).setParseAction(lambda t: ast.PrimitiveType(t[0], t[1:]))
-GenericType = (delimitedList(Identifier, Dot) + TypeParameters).setParseAction(
-    lambda t: ast.GenericType(t[0], t[1:-2], t[-1]))
+TypeParameters = (Ign("[") + delimitedList(Type, Comma) + Ign(']')).setParseAction(lambda t: [t.asList()])
+BaseType = delimitedList(Identifier, Dot).setParseAction(lambda t: [ast.ModuleName(t[:-1]), t[-1]])
+PrimitiveType = BaseType.copy().addParseAction(lambda t: ast.PrimitiveType(t[0], t[1]))
+GenericType = (BaseType + TypeParameters).setParseAction(lambda t: ast.GenericType(t[0], t[1], t[2]))
 TypeTuple = (Ign('(') + OpNewLines + delimitedList(Type, Comma) + OpNewLines + Ign(')')).setParseAction(
     lambda t: ast.TypeTuple(t.asList()))
-Type << (PrimitiveType_GenericType | TypeTuple)
-# Type << (PrimitiveType ^ GenericType ^ TypeTuple)
+Type << (PrimitiveType ^ GenericType ^ TypeTuple)
 
 # Expressions
 Expression = Forward()
