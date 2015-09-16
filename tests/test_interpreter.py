@@ -68,6 +68,8 @@ def test_numbers():
     _assert("100 + 20 + 3 = 200 - 77")
     _assert("25 = 100 / 4")
 
+    _assert("1.real = 1")
+    _assert("1.real.imag = 0")
 
 def test_strings():
     """Tests for strings"""

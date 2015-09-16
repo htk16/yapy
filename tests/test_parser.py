@@ -77,15 +77,12 @@ def test_expression_parsing():
     assert parse_expr('("hoge")') == String("hoge")
     assert parse_expr('(1 + 2)') == bops(Integer(1), bop("+"), Integer(2))
 
-    # Term1: Attribute reference
-    assert parse_expr("x.y") == Attribute(var("x"), "y")
-
-    # Term2: Function call
+    # Term1: Function call
     assert parse_expr("abort()") == FunctionCall(var("abort"), [])
     assert parse_expr("sum(1, x)") == \
            FunctionCall(var("sum"), [Integer(1), var("x")])
 
-    # Term3: Basic expressions
+    # Term2: Basic expressions
     assert parse_expr('if x = 1 then "a" else "b"') == \
            If(bops(var("x"), bop("="), Integer(1)),
               Block([String("a")]),
@@ -123,16 +120,18 @@ def test_expression_parsing():
                             bops(var("lhs"), bop("+"), var("rhs"))),
                         var("s")]))
 
-    # Term4: Unary Operation
+    # Term3: Unary Operation
     assert parse_expr("!e") == UnaryOperation(var("e"), UnaryOperator("!"))
 
-    # Term5: Binary Operation
+    # Term4: Binary Operation
     assert parse(parser.BinaryOperator, "+") == bop("+")
     assert parse(parser.BinaryOperator, ">>") == bop(">>")
     assert parse_expr("2.56") == Float(2.56)
     assert parse_expr("2.56 + 3.14") == bops(Float(2.56), bop("+"), Float(3.14))
     assert parse_expr("10 + 2 * 3") == \
            bops(Integer(10), bop("+"), Integer(2), bop("*"), Integer(3))
+    assert parse_expr("10.real") == \
+           bops(Integer(10), bop("."), var("real"))
 
 
 def test_statement_parsing():

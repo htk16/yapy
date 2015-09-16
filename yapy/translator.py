@@ -12,6 +12,30 @@ def translate(node: ast.Node):
     return PythonTranslator().translate(node)
 
 
+def create_Compare_constructor(op):
+    def create_Compare(translator: "PythonTranslator", node: ast.BinaryOperation) -> pyast.Compare:
+        return pyast.Compare(
+            left=translator.translate(node.lhs),
+            ops=[op],
+            comparators=[translator.translate(node.rhs)])
+    return create_Compare
+
+
+def create_BinOp_constructor(op):
+    def create_BinOp(translator: "PythonTranslator", node: ast.BinaryOperation) -> pyast.BinOp:
+        return pyast.BinOp(
+            left=translator.translate(node.lhs),
+            op=op,
+            right=translator.translate(node.rhs))
+    return create_BinOp
+
+
+def create_Attribute(translator: "PythonTranslator", node: ast.BinaryOperation) -> pyast.Attribute:
+    return translator.translate(ast.Attribute(
+        expr=node.lhs,
+        attr=node.rhs.name))
+
+
 class PythonTranslator:
     """Translator from Yapy to Python"""
 
@@ -133,43 +157,31 @@ class PythonTranslator:
             op=self.UNARY_OPERATORS[node.op.op],
             operand=self.translate(node.expr))
 
-    BINARY_OPERATORS = {"+": pyast.Add(),
-                        "-": pyast.Sub(),
-                        "**": pyast.Pow(),
-                        "*": pyast.Mult(),
-                        "/": pyast.Div(),
-                        "%": pyast.Mod(),
-                        "|": pyast.BitOr(),
-                        "&": pyast.BitAnd(),
-                        "^": pyast.BitXor(),
-                        "<<": pyast.LShift(),
-                        ">>": pyast.RShift(),
-                        "=": pyast.Eq(),
-                        "!=": pyast.NotEq(),
-                        "<=": pyast.LtE(),
-                        "<": pyast.Lt(),
-                        ">=": pyast.GtE(),
-                        ">": pyast.Gt()}
-
-    COMPARISON_BINARY_OPERATORS = set(("=", "!=", "<=", "<", ">=", ">"))
-
-    def _is_comparison_binary_operator(self, op_name):
-        return op_name in self.COMPARISON_BINARY_OPERATORS
+    BINARY_OPERATORS = {"+": create_BinOp_constructor(pyast.Add()),
+                        "-": create_BinOp_constructor(pyast.Sub()),
+                        "**": create_BinOp_constructor(pyast.Pow()),
+                        "*": create_BinOp_constructor(pyast.Mult()),
+                        "/": create_BinOp_constructor(pyast.Div()),
+                        "%": create_BinOp_constructor(pyast.Mod()),
+                        "|": create_BinOp_constructor(pyast.BitOr()),
+                        "&": create_BinOp_constructor(pyast.BitAnd()),
+                        "^": create_BinOp_constructor(pyast.BitXor()),
+                        "<<": create_Compare_constructor(pyast.LShift()),
+                        ">>": create_Compare_constructor(pyast.RShift()),
+                        "=": create_Compare_constructor(pyast.Eq()),
+                        "!=": create_Compare_constructor(pyast.NotEq()),
+                        "<=": create_Compare_constructor(pyast.LtE()),
+                        "<": create_Compare_constructor(pyast.Lt()),
+                        ">=": create_Compare_constructor(pyast.GtE()),
+                        ">": create_Compare_constructor(pyast.Gt()),
+                        ".": create_Attribute}  # TODO use macro expander to expand . operator
 
     def translate_BinaryOperation(self, node: ast.BinaryOperation) -> pyast.BinOp:
         if node.op.op not in self.BINARY_OPERATORS:
             raise TranslationError("Unsupported binary operator: {0}".format(node.op))
 
-        if self._is_comparison_binary_operator(node.op.op):
-            return pyast.Compare(
-                left=self.translate(node.lhs),
-                ops=[self.BINARY_OPERATORS[node.op.op]],
-                comparators=[self.translate(node.rhs)])
-        else:
-            return pyast.BinOp(
-                left=self.translate(node.lhs),
-                op=self.BINARY_OPERATORS[node.op.op],
-                right=self.translate(node.rhs))
+        constructor = self.BINARY_OPERATORS[node.op.op]
+        return constructor(self, node)
 
     def translate_List(self, node: ast.List) -> pyast.List:
         return pyast.List(
@@ -206,3 +218,4 @@ class PythonTranslator:
 
     def translate_NoneValue(self, _: ast.NoneValue) -> pyast.NameConstant:
         return pyast.NameConstant(value=None)
+

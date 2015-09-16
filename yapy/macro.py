@@ -1,5 +1,7 @@
 import yapy.ast as ast
 import itertools
+import functools
+import enum
 
 
 class MacroExpantionError(Exception):
@@ -117,33 +119,52 @@ class BlockHoister(ast.NodeTransducer):
             return True
 
 
+class BinaryOperatorInfo:
+    """Binary operator infomation"""
+    __slots__ = ["operator", "priority", "association"]
+
+    class Association(enum.Enum):
+        LEFT = 0
+        RIGHT = 1
+
+    def __init__(self, op: str, priority: int, association):
+        self.operator = op
+        self.priority = priority
+        self.association = association
+
+    @classmethod
+    def create_operator_priorities(cls, defines) -> dict:
+        priorities = {}
+        for priority, define in enumerate(defines):
+            for association, ops in define.items():
+                for op in ops:
+                    priorities[op] = cls(ast.BinaryOperator(op), priority, association)
+        return priorities
+
+
 class MacroExpander(ast.NodeTransducer):
     """Yapy macro expander"""
 
-    OPERATOR_PRIORITIES = {
-        "||": 1,
-        "&&": 2,
-        "in": 3,
-        "is": 3,
-        "<": 3,
-        "<=": 3,
-        ">": 3,
-        ">=": 3,
-        "!=": 3,
-        "=": 3,
-        "|": 4,
-        "^": 5,
-        "&": 6,
-        "<<": 7,
-        ">>": 7,
-        "+": 8,
-        "-": 8,
-        "*": 9,
-        "/": 9,
-        "//": 9,
-        "%": 9,
-        "**": 10
-    }
+    _LEFT = BinaryOperatorInfo.Association.LEFT
+    _RIGHT = BinaryOperatorInfo.Association.RIGHT
+
+    _OPERATOR_PRIORITIES = (
+        # Low priorities
+        {_LEFT: (), _RIGHT: ("||", )},
+        {_LEFT: (), _RIGHT: ("&&", )},
+        {_LEFT: ("in", "is", "<", "<=", ">", ">=", "!=", "="), _RIGHT: ()},
+        {_LEFT: (), _RIGHT: ("|", )},
+        {_LEFT: (), _RIGHT: ("^", )},
+        {_LEFT: (), _RIGHT: ("&", )},
+        {_LEFT: (), _RIGHT: ("<<", ">>")},
+        {_LEFT: (), _RIGHT: ("+", "-")},
+        {_LEFT: (), _RIGHT: ("*", "/", "//", "%")},
+        {_LEFT: (), _RIGHT: ("**", )},
+        {_LEFT: (".", ), _RIGHT: ()},
+        # High priorities
+    )
+
+    OPERATOR_PRIORITIES = BinaryOperatorInfo.create_operator_priorities(_OPERATOR_PRIORITIES)
 
     def need_transduce_BinaryOperations(self, _: ast.BinaryOperations) -> bool:
         return True
@@ -156,12 +177,12 @@ class MacroExpander(ast.NodeTransducer):
         def get_prev_priority():
             nonlocal ops
             assert len(ops) != 0
-            return ops[-1]["priority"]
+            return ops[-1].priority
 
         def pop_prev_op():
             nonlocal ops
             assert len(ops) != 0
-            return ops.pop()["op"]
+            return ops.pop().operator
 
         def construct_binary_operation():
             nonlocal exprs, ops
@@ -173,7 +194,6 @@ class MacroExpander(ast.NodeTransducer):
             exprs.append(bop)
 
         exprs_and_ops = node.terms_and_ops
-        # for i in range(len(exprs_and_ops)):
         for i, v in enumerate(exprs_and_ops):
             if i % 2 == 0:
                 # expression
@@ -183,11 +203,13 @@ class MacroExpander(ast.NodeTransducer):
                 op = v  # type: ast.BinaryOperator
                 if op.op not in self.OPERATOR_PRIORITIES:
                     raise MacroExpantionError("unsupported binary operator {0}".format(op.op))
-                priority = self.OPERATOR_PRIORITIES[op.op]
+                info = self.OPERATOR_PRIORITIES[op.op]  # type: BinaryOperatorInfo
 
-                while (len(ops) > 0) and (get_prev_priority() > priority):
+                while (len(ops) > 0) and \
+                        ((info.association == BinaryOperatorInfo.Association.LEFT and get_prev_priority() >= info.priority) or \
+                         (info.association == BinaryOperatorInfo.Association.RIGHT and get_prev_priority() > info.priority)):
                     construct_binary_operation()
-                ops.append({"op": op, "priority": priority})
+                ops.append(info)
 
         while len(ops) > 0:
             construct_binary_operation()
