@@ -1,6 +1,5 @@
 import yapy.ast as ast
 import itertools
-import functools
 import enum
 
 
@@ -12,7 +11,17 @@ class MacroExpantionError(Exception):
 def expand_macro(node: ast.Node) -> ast.Node:
     """Return a Yapy AST node expanded macros recursively."""
     # TODO expand macros until halting
-    return MacroExpander().transduce(BlockHoister().transduce(node))
+    transducers = [BlockHoister(),
+                   MacroExpander()]
+
+    def expand(n):
+        for transducer in transducers:
+            if transducer.need_transduce(n):
+                return expand(transducer.transduce(n))
+        else:
+            return n
+
+    return expand(node)
 
 
 class BlockHoister(ast.NodeTransducer):

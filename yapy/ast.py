@@ -1,5 +1,10 @@
+import functools
+
+
 class Node:
     """Abstract Syntax Tree node"""
+    MAGIC_PRIME_NUMBER = 9999991  # for calculating a hash value
+
     def _equal_type(self, other) -> bool:
         return self.__class__ == other.__class__
 
@@ -8,6 +13,22 @@ class Node:
 
     def __eq__(self, other) -> bool:
         return self._equal_type(other) and self._equal_properties(other)
+
+    def __hash__(self):
+        def _reduce_hashes(lst, init):
+            return functools.reduce(lambda acc, e: (acc * _calc_hash(e)) % self.MAGIC_PRIME_NUMBER,
+                                    lst,
+                                    init)
+
+        def _calc_hash(v):
+            if isinstance(v, list):
+                return _reduce_hashes(v, 1)
+            else:
+                return hash(v)
+
+        # TODO cache hash value
+        children = (i[1] for i in self.fields())
+        return _reduce_hashes(children, hash(type(self)))
 
     def __str__(self) -> str:
         return "{0}({1})".format(
@@ -82,6 +103,13 @@ class NodeVisitor:
 
 
 class NodeTransducer:
+    def __new__(cls, *args, **kwargs):
+        node = object.__new__(cls)
+        cls.__init__(node, *args, **kwargs)
+        setattr(node, "_cache", {})
+        return node
+
+
     def transduce(self, node) -> Node:
         """transduce an AST."""
         if not self.need_transduce(node):
@@ -100,15 +128,25 @@ class NodeTransducer:
         return self.transduce(
                 node.__class__(**dict((k, self.transduce(n)) for (k, n) in node.fields())))
 
-    def need_transduce(self, node: Node) -> bool:
-        if isinstance(node, Node):
-            predicate_name = 'need_transduce_' + node.__class__.__name__
-            predicate = getattr(self, predicate_name, self.generic_predicate)
-            return predicate(node)
-        elif isinstance(node, list):
-            return any(self.need_transduce(n) for n in node)
-        else:
-            return False
+    def need_transduce(self, node) -> bool:
+        def _check():
+            if isinstance(node, Node):
+                predicate_name = 'need_transduce_' + node.__class__.__name__
+                predicate = getattr(self, predicate_name, self.generic_predicate)
+                return predicate(node)
+            elif isinstance(node, list):
+                return any(self.need_transduce(n) for n in node)
+            else:
+                return False
+
+        if isinstance(node, list):
+            # list is unhashable type
+            return _check()
+
+        if node not in self._cache:
+            # memoize hash value
+            self._cache[node] = _check()
+        return self._cache[node]
 
     def generic_predicate(self, node: Node) -> bool:
         return any(self.need_transduce(child) for (name, child) in node.fields())
