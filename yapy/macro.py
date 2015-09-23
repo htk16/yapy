@@ -24,7 +24,57 @@ def expand_macro(node: ast.Node) -> ast.Node:
     return expand(node)
 
 
-class BlockHoister(ast.NodeTransducer):
+class NodeTransducer:
+    """Abstract Node Transducer"""
+    def __new__(cls, *args, **kwargs):
+        node = object.__new__(cls)
+        cls.__init__(node, *args, **kwargs)
+        setattr(node, "_cache", {})
+        return node
+
+    def transduce(self, node) -> ast.Node:
+        """transduce an AST."""
+        if not self.need_transduce(node):
+            return node
+
+        if isinstance(node, ast.Node):
+            transducer_name = 'transduce_' + node.__class__.__name__
+            transducer = getattr(self, transducer_name, self.transduce_generic_node)
+            return transducer(node)
+        elif isinstance(node, list):
+            return list(self.transduce(child) for child in node)
+        else:
+            return node
+
+    def transduce_generic_node(self, node: ast.Node) -> ast.Node:
+        return self.transduce(
+                node.__class__(**dict((k, self.transduce(n)) for (k, n) in node.fields())))
+
+    def need_transduce(self, node) -> bool:
+        def _check():
+            if isinstance(node, ast.Node):
+                predicate_name = 'need_transduce_' + node.__class__.__name__
+                predicate = getattr(self, predicate_name, self.generic_predicate)
+                return predicate(node)
+            elif isinstance(node, list):
+                return any(self.need_transduce(n) for n in node)
+            else:
+                return False
+
+        if isinstance(node, list):
+            # list is unhashable type
+            return _check()
+
+        if node not in self._cache:
+            # memoize hash value
+            self._cache[node] = _check()
+        return self._cache[node]
+
+    def generic_predicate(self, node: ast.Node) -> bool:
+        return any(self.need_transduce(child) for (name, child) in node.fields())
+
+
+class BlockHoister(NodeTransducer):
     """Block hoister"""
     def _need_transduce_Statements(self, statements: list) -> bool:
         return any(self.need_transduce(n) for n in
@@ -51,7 +101,7 @@ class BlockHoister(ast.NodeTransducer):
     def need_transduce_Function(self, _: ast.Node) -> bool:
         return True
 
-    class AnonymousFunctionHoister(ast.NodeTransducer):
+    class AnonymousFunctionHoister(NodeTransducer):
         """Anonymous Function Hoister"""
         def __init__(self):
             self._funcs = []
@@ -151,7 +201,7 @@ class BinaryOperatorInfo:
         return priorities
 
 
-class MacroExpander(ast.NodeTransducer):
+class MacroExpander(NodeTransducer):
     """Yapy macro expander"""
 
     _LEFT = BinaryOperatorInfo.Association.LEFT
@@ -249,7 +299,7 @@ class MacroExpander(ast.NodeTransducer):
         return self.need_transduce(func_def.body) or isinstance(func_def.body.statements[-1], ast.Expression)
 
 
-class ResultStoringTransducer(ast.NodeTransducer):
+class ResultStoringTransducer(NodeTransducer):
     def __init__(self, result_name: str):
         self._result_name = result_name
 
