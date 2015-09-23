@@ -201,16 +201,28 @@ class BinaryOperatorInfo:
         return priorities
 
 
+def expand_Attribute(node: ast.BinaryOperation) -> ast.Attribute:
+    return ast.Attribute(
+        expr=node.lhs,
+        attr=node.rhs.name)
+
+
+def expand_Pipe(node: ast.BinaryOperation) -> ast.Attribute:
+    return ast.FunctionCall(
+        func=node.rhs,
+        params=[node.lhs])
+
+
 class MacroExpander(NodeTransducer):
     """Yapy macro expander"""
 
     _LEFT = BinaryOperatorInfo.Association.LEFT
     _RIGHT = BinaryOperatorInfo.Association.RIGHT
-
     _OPERATOR_PRIORITIES = (
         # Low priorities
         {_LEFT: (), _RIGHT: ("||", )},
         {_LEFT: (), _RIGHT: ("&&", )},
+        {_LEFT: ("|>", ), _RIGHT: ()},
         {_LEFT: ("in", "is", "<", "<=", ">", ">=", "!=", "="), _RIGHT: ()},
         {_LEFT: (), _RIGHT: ("|", )},
         {_LEFT: (), _RIGHT: ("^", )},
@@ -222,8 +234,12 @@ class MacroExpander(NodeTransducer):
         {_LEFT: (".", ), _RIGHT: ()},
         # High priorities
     )
-
     OPERATOR_PRIORITIES = BinaryOperatorInfo.create_operator_priorities(_OPERATOR_PRIORITIES)
+
+    BINARY_OPERATION_EXPANDERS = {
+        ".": expand_Attribute,
+        "|>": expand_Pipe
+    }
 
     def need_transduce_BinaryOperations(self, _: ast.BinaryOperations) -> bool:
         return True
@@ -250,7 +266,10 @@ class MacroExpander(NodeTransducer):
             rhs = self.transduce(exprs.pop())
             lhs = self.transduce(exprs.pop())
             bop = ast.BinaryOperation(lhs, op, rhs)
-            exprs.append(bop)
+
+            # Expanding macro operator
+            expander = self.BINARY_OPERATION_EXPANDERS.get(op.op, lambda n: n)
+            exprs.append(expander(bop))
 
         exprs_and_ops = node.terms_and_ops
         for i, v in enumerate(exprs_and_ops):

@@ -30,12 +30,6 @@ def create_BinOp_constructor(op):
     return create_BinOp
 
 
-def create_Attribute(translator: "PythonTranslator", node: ast.BinaryOperation) -> pyast.Attribute:
-    return translator.translate(ast.Attribute(
-        expr=node.lhs,
-        attr=node.rhs.name))
-
-
 class PythonTranslator:
     """Translator from Yapy to Python"""
 
@@ -173,8 +167,7 @@ class PythonTranslator:
                         "<=": create_Compare_constructor(pyast.LtE()),
                         "<": create_Compare_constructor(pyast.Lt()),
                         ">=": create_Compare_constructor(pyast.GtE()),
-                        ">": create_Compare_constructor(pyast.Gt()),
-                        ".": create_Attribute}  # TODO use macro expander to expand . operator
+                        ">": create_Compare_constructor(pyast.Gt())}
 
     def translate_BinaryOperation(self, node: ast.BinaryOperation) -> pyast.BinOp:
         if node.op.op not in self.BINARY_OPERATORS:
