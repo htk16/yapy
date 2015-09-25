@@ -71,6 +71,10 @@ class ASTDef:
             if self.opts.get("block", False):
                 yield self.IS_BLOCK
 
+            additions = self.opts.get("additions", "")
+            if additions != "":
+                yield additions
+
         return "\n".join(_listup_methods())
 
 
@@ -132,7 +136,11 @@ STATEMENT_AST_DEFINITIONS = (
     Node("ModuleName", """Module name
 
     ModuleName::= Identifier { '.' Identifier }
-    """, [("names", "list")]),
+    """, [("names", "list")],
+         additions="""    @property
+    def name(self) -> str:
+        return ".".join(self.names)
+    """),
 
     # Import
     Statement("Import", """Module import

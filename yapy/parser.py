@@ -80,18 +80,7 @@ Term0 = (List
          | Ign("(") + Expression + Ign(")"))
 
 
-# Term1: Function call
-Arguments = Optional(delimitedList(Expression, Comma).setParseAction(lambda t: [t.asList()]), [])
-FunctionCall = (Term0 + Ign('(') + Arguments + Ign(')')).setParseAction(
-    lambda t: ast.FunctionCall(t[0], t[1]))
-Index = Expression.copy().setParseAction(lambda t: ast.Index(t[0]))
-Slice = (Expression + Ign(":") + OpNewLine + Expression).setParseAction(lambda t: ast.Slice(t[0], t[1], ast.Integer(1)))
-Range = (Index ^ Slice)
-Subscript = (Term0 + Ign('[') + Range + Ign(']')).setParseAction(lambda t: ast.Subscript(t[0], t[1]))
-Term1 = (Term0 ^ FunctionCall ^ Subscript)
-
-
-# Term2: Basic expressions
+# Term1: Basic expressions
 Statement = Forward()
 BlockDelimiter = (Literal(";") ^ OpNewLines)
 Block = ((Ign('{') + OpNewLines +
@@ -104,25 +93,43 @@ Parameters = Optional(delimitedList(TypedVariable, Comma).setParseAction(lambda 
 Function = (Ign("fn") + Ign('(') + Parameters + Ign(')') +
             Optional(Ign(":") + Type, default=ast.Unsolved()) +
             Ign('=') + Block).setParseAction(lambda t: ast.Function(t[0], t[1], t[2]))
-Term2 = (If
+Term1 = (If
          | Function
-         | Term1)
+         | Term0)
 
 
-# Term3: Unary Operation
+# Term2: Unary Operation
 unary_operators = ["-", "!"]
 UnaryOperator = Literals(unary_operators).setParseAction(lambda t: ast.UnaryOperator(t[0]))
 UnaryOperation = (UnaryOperator + Expression).setParseAction(lambda t: ast.UnaryOperation(t[1], t[0]))
-Term3 = (UnaryOperation
-         | Term2)
+Term2 = (UnaryOperation
+         | Term1)
 
 
-# Term4: Binary Operation
-BinaryOperator = Word(".=<>@^|&+-*/%?!~").setParseAction(lambda t: ast.BinaryOperator(t[0]))
-BinaryOperations = (Term3 + OneOrMore(OpNewLine + BinaryOperator + OpNewLine + Term3)).setParseAction(
+# Term3: Attribute
+DotOperator = Literal(".").setParseAction(lambda t: ast.BinaryOperator(t[0]))
+Attribute = (Term2 + OneOrMore(OpNewLine + DotOperator + OpNewLine + Term2)).setParseAction(
     lambda t: ast.BinaryOperations(t.asList()))
-Term4 = BinaryOperations | Term3
-Expression << Term4
+Term3 = (Attribute ^ Term2)
+
+
+# Term4: Function call and subscript
+Index = Expression.copy().setParseAction(lambda t: ast.Index(t[0]))
+Slice = (Expression + Ign(":") + OpNewLine + Expression).setParseAction(lambda t: ast.Slice(t[0], t[1], ast.Integer(1)))
+Range = (Index ^ Slice)
+Subscript = (Term3 + Ign('[') + Range + Ign(']')).setParseAction(lambda t: ast.Subscript(t[0], t[1]))
+Arguments = Optional(delimitedList(Expression, Comma).setParseAction(lambda t: [t.asList()]), [])
+FunctionCall = (Term3 + Ign('(') + Arguments + Ign(')')).setParseAction(
+    lambda t: ast.FunctionCall(t[0], t[1]))
+Term4 = (FunctionCall ^ Subscript ^ Term3)
+
+
+# Term5: Binary Operation
+BinaryOperator = Word("=<>@^|&+-*/%?!~").setParseAction(lambda t: ast.BinaryOperator(t[0]))
+BinaryOperations = (Term4 + OneOrMore(OpNewLine + BinaryOperator + OpNewLine + Term4)).setParseAction(
+    lambda t: ast.BinaryOperations(t.asList()))
+Term5 = (BinaryOperations | Term4)
+Expression << Term5
 
 
 # Statement

@@ -170,6 +170,10 @@ class ModuleName(Node):
     def names(self) -> list:
         return self._get_field_value("names")
     
+    @property
+    def name(self) -> str:
+        return ".".join(self.names)
+    
 
 class Import(Statement):
     """Module import

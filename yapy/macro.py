@@ -207,10 +207,14 @@ def expand_Attribute(node: ast.BinaryOperation) -> ast.Attribute:
         attr=node.rhs.name)
 
 
-def expand_Pipe(node: ast.BinaryOperation) -> ast.Attribute:
+def expand_Pipe(node: ast.BinaryOperation) -> ast.FunctionCall:
     return ast.FunctionCall(
         func=node.rhs,
         params=[node.lhs])
+
+
+def expand_Bind(node: ast.BinaryOperation) -> ast.FunctionCall:
+    raise NotImplementedError("Not support @ operator")
 
 
 class MacroExpander(NodeTransducer):
@@ -223,6 +227,7 @@ class MacroExpander(NodeTransducer):
         {_LEFT: (), _RIGHT: ("||", )},
         {_LEFT: (), _RIGHT: ("&&", )},
         {_LEFT: ("|>", ), _RIGHT: ()},
+        {_LEFT: ("@", ), _RIGHT: ()},
         {_LEFT: ("in", "is", "<", "<=", ">", ">=", "!=", "="), _RIGHT: ()},
         {_LEFT: (), _RIGHT: ("|", )},
         {_LEFT: (), _RIGHT: ("^", )},
@@ -238,7 +243,8 @@ class MacroExpander(NodeTransducer):
 
     BINARY_OPERATION_EXPANDERS = {
         ".": expand_Attribute,
-        "|>": expand_Pipe
+        "|>": expand_Pipe,
+        "@": expand_Bind
     }
 
     def need_transduce_BinaryOperations(self, _: ast.BinaryOperations) -> bool:

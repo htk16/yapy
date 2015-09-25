@@ -86,6 +86,30 @@ def test_list():
     _assert('len(["hoge"] * 5) = 5')
 
 
+def test_binary_operators():
+    """Tests for binary operators"""
+    # pipe
+    _test("""
+    let s = [1, 2, 4]
+            |> fn(xs) = filter(fn(x) = (x % 2 = 1), xs)
+            |> list
+            |> len
+    assert(s = 1)
+    """)
+
+
+def test_attributes():
+    """Tests for attributes"""
+    _assert("1.real = 1")
+    _assert('"hoge".title() = "Hoge"')
+    _test("""
+    import functools
+    def sum(lhs: Int, rhs: Int): Int = lhs + rhs
+    let inc = functools.partial(sum, 1)
+    assert(inc(5) = 6)
+    """)
+
+
 def test_functions():
     """Tests for functions"""
     # sum
