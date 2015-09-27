@@ -1,12 +1,13 @@
 import argparse
 import ast
 import enum
-import yapy.parser
-import yapy.macro
-import yapy.translator
 import pyparsing
 import prompt_toolkit.shortcuts
 import prompt_toolkit.history
+import yapy.parser
+import yapy.macro
+import yapy.translator
+import yapy.environment
 
 
 class InterpreterError(Exception):
@@ -61,8 +62,7 @@ def compile_yapy(source: str, filename: str, mode: str="exec", verbose=False, re
 
 def create_initial_environment() -> dict:
     """Create and return an initial yapy environment"""
-    env = {"__builtins__": globals()["__builtins__"]}
-    return env
+    return yapy.environment.create_initial_environment()
 
 
 class ExecutionStatus(enum.Enum):
